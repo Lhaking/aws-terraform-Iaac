@@ -1,21 +1,3 @@
-resource "aws_instance" "webserver1" {
-
-    ami = "ami-01dd271720c1ba44f"
-    count = 2
-    instance_type = "t2.micro"
-    subnet_id = element(aws_subnet.Public_subnet_0.*.id, count.index)
-    key_name = "test"
-    user_data = filebase64("apache-script.sh")
-    associate_public_ip_address = true
-    security_groups = [aws_security_group.allow_tls.id]
-    tags = {
-      Name = "web"
-    }
-  
-}
-
-
-
 resource "aws_security_group" "allow_tls" {
     name = "allow_tls"
     description = "Allow Tls inbound traffic"
@@ -54,7 +36,94 @@ resource "aws_security_group" "allow_tls" {
     tags = {
         Name = "allow tls"
     }
-}    
+}   
+# resource "aws_launch_configuration" "main" {
+#   name_prefix   = "main-"
+#   image_id      = "ami-01dd271720c1ba44f"  
+#   instance_type = "t2.micro"
+# }
+
+
+resource "aws_launch_template" "main" {
+  name = "main"
+
+  ebs_optimized = true
+  # iam_instance_profile {
+  #   name = "test"
+  # }
+  image_id = "ami-01dd271720c1ba44f"
+  instance_initiated_shutdown_behavior = "terminate"
+  user_data = filebase64("${path.module}/apache-script.sh")
+  instance_type = "t2.micro"
+  key_name = "test"
+  instance_market_options {
+    market_type = "spot"
+  }
+
+  monitoring {
+    enabled = true
+  }
+  placement {
+    availability_zone = "eu-west-1"
+  }
+  vpc_security_group_ids = [aws_security_group.allow_tls.id]
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name = "test"
+    }
+  }
+}
+
+resource "aws_autoscaling_group" "main" {
+  name                 = "main-asg"
+  min_size             = 2
+  max_size             = 5
+  desired_capacity     = 4
+
+  launch_template {
+    id = aws_launch_template.main.id
+    version = "$Latest"
+  }
+
+  vpc_zone_identifier = aws_subnet.Public_subnet_0.*.id
+
+  # Additional settings can be configured here
+  # health_check_type    = "EC2"
+  # termination_policies = ["OldestInstance"]
+
+  tag {
+    key                 = "Environment"
+    value               = "Production"
+    propagate_at_launch = true
+  }
+}
+
+
+
+
+
+
+
+
+
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
